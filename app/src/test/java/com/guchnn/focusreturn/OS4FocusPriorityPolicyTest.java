@@ -49,10 +49,17 @@ public class OS4FocusPriorityPolicyTest {
     }
 
     @Test
-    public void unknownHookModeDefaultsToOs3() {
-        assertEquals(FocusRestoreSettings.HOOK_MODE_OS3,
+    public void anyHookModeNormalisesToOs4() {
+        // HyperOS 4 is the only supported target: FocusReturnHook installs the OS4
+        // hooks unconditionally, so every other value - including unknown ones and
+        // the legacy OS3 constant - is normalised to HOOK_MODE_OS4.
+        assertEquals(FocusRestoreSettings.HOOK_MODE_OS4,
                 FocusRestoreSettings.normalizeHookMode(99));
         assertEquals(FocusRestoreSettings.HOOK_MODE_OS4,
+                FocusRestoreSettings.normalizeHookMode(0));
+        assertEquals(FocusRestoreSettings.HOOK_MODE_OS4,
                 FocusRestoreSettings.normalizeHookMode(FocusRestoreSettings.HOOK_MODE_OS4));
+        assertEquals(FocusRestoreSettings.HOOK_MODE_OS4,
+                FocusRestoreSettings.DEFAULT_HOOK_MODE);
     }
 }
