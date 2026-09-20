@@ -1,0 +1,34 @@
+# Normalise line endings in the repository, but keep the files that must stay
+# native to a platform on their native endings.
+#
+# Without this, a Windows clone with core.autocrlf=true can rewrite `gradlew`
+# to CRLF, which makes it un-runnable on Linux/macOS and in CI.
+
+* text=auto eol=lf
+
+# Windows batch files must keep CRLF, otherwise cmd.exe mis-parses labels.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Native binaries - never touch these.
+*.jar   binary
+*.jks   binary
+*.keystore binary
+*.apk   binary
+*.aab   binary
+*.png   binary
+*.webp  binary
+
+# The wrapper scripts are shell scripts and must keep LF + stay executable.
+gradlew     text eol=lf
+gradlew.bat text eol=crlf
+
+# Gradle/Android build files
+*.gradle    text eol=lf
+*.properties text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.md        text eol=lf
+
+# Generated / vendored code should not skew language statistics.
+app/src/main/assets/xposed_init linguist-generated

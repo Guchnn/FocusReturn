@@ -1,0 +1,5 @@
+<!-- Dark values, picked up automatically when the system is in night mode so the
+     very first frame is already dark instead of flashing white. -->
+<resources>
+    <color name="window_background">#FF111214</color>
+</resources>

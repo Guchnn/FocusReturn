@@ -1,0 +1,20 @@
+<!-- Monochrome layer for themed icons (Android 13+). The system tints it, so
+     the mark itself is drawn in a single flat colour. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M39.15,68.85A21,21 0 1 1 68.85,68.85"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="5.4"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent" />
+    <path
+        android:pathData="M65.95,71.75L73.23,70.83L66.87,64.47Z"
+        android:fillColor="#FF000000" />
+    <path
+        android:pathData="M46.7,48.8h14.6a5.2,5.2 0 0 1 0,10.4h-14.6a5.2,5.2 0 0 1 0,-10.4z"
+        android:fillColor="#FF000000" />
+</vector>

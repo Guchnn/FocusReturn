@@ -1,0 +1,238 @@
+name: Build
+
+# Builds the FocusReturn / 焦点回归 LSPosed module.
+#
+#   push to main/master  -> build + unit tests + upload APK & source artefacts
+#   pull request         -> same, but unsigned (fork PRs have no secrets)
+#   tag v*               -> same, then publish a GitHub Release
+#   manual run           -> build on demand
+#
+# Signing is optional: when the four SIGNING_* secrets are present the APK is
+# signed with the real release key, otherwise it is built unsigned and the run
+# still succeeds. See README.md "构建与签名".
+#
+# The automatic Release is gated on a signed build. Without the signing secrets
+# a tag would otherwise publish an UNSIGNED apk and `--clobber` the properly
+# signed one, so an unsigned run only uploads workflow artefacts and leaves any
+# existing Release untouched.
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege by default; the release job opts into contents:write.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Assemble release APK
+    runs-on: ubuntu-latest
+    outputs:
+      # Empty when the signing secrets are absent, which keeps the release job
+      # below from publishing an unsigned APK over a signed one.
+      signed: ${{ steps.signing.outputs.signed }}
+    env:
+      # Secrets cannot be referenced in a step `if:` directly, so they are
+      # hoisted into the job env and probed from there.
+      SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+      SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # android-actions/setup-android is deliberately NOT used. It shells out to
+      # `sdkmanager tools`, and the legacy `tools` package no longer exists in
+      # the current Android repositories, so the action dies with
+      # "Warning: Failed to find package 'tools'" and exit code 1. The runner
+      # image already ships the SDK, so we only install what is missing.
+      - name: Set up Android SDK
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER=$(ls "$SDK_ROOT"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -n 1)
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          echo "Android SDK ready at $SDK_ROOT"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Files created on Windows are often committed without the executable
+      # bit, which makes `./gradlew` fail on the runner.
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Restore signing keystore
+        id: signing
+        if: env.SIGNING_KEYSTORE_BASE64 != ''
+        run: |
+          set -euo pipefail
+          echo "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          echo "SIGNED_BUILD=true" >> "$GITHUB_ENV"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+          echo "Signing key restored, release will be signed."
+
+      - name: Assemble release
+        run: |
+          set -euo pipefail
+          EXTRA=()
+          if [ "${SIGNED_BUILD:-false}" = "true" ]; then
+            EXTRA+=("-PFOCUSRETURN_KEYSTORE=$RUNNER_TEMP/release.jks")
+            EXTRA+=("-PFOCUSRETURN_STORE_PASSWORD=$SIGNING_STORE_PASSWORD")
+            EXTRA+=("-PFOCUSRETURN_KEY_ALIAS=$SIGNING_KEY_ALIAS")
+            EXTRA+=("-PFOCUSRETURN_KEY_PASSWORD=$SIGNING_KEY_PASSWORD")
+          else
+            echo "::warning::Signing secrets are not configured - building an UNSIGNED APK."
+          fi
+          ./gradlew --no-daemon --stacktrace assembleRelease "${EXTRA[@]}"
+
+      - name: Run unit tests
+        run: ./gradlew --no-daemon --stacktrace testReleaseUnitTest
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(sed -n "s/.*versionName '\([^']*\)'.*/\1/p" app/build.gradle | head -n 1)
+          CODE=$(sed -n "s/.*versionCode \([0-9]*\).*/\1/p" app/build.gradle | head -n 1)
+          echo "name=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          {
+            echo "### FocusReturn \`$VERSION\` (versionCode \`$CODE\`)"
+            echo
+            echo "| item | value |"
+            echo "| --- | --- |"
+            echo "| signed | \`${SIGNED_BUILD:-false}\` |"
+            echo "| commit | \`${{ github.sha }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify signature
+        run: |
+          set -euo pipefail
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -n 1)
+          echo "APK: $APK"
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)
+          if [ "${SIGNED_BUILD:-false}" = "true" ]; then
+            "$APKSIGNER" verify --print-certs "$APK"
+          elif "$APKSIGNER" verify "$APK" > /dev/null 2>&1; then
+            echo "::error::APK is signed, but no signing secrets were provided."
+            exit 1
+          else
+            echo "APK is unsigned, as expected."
+          fi
+
+      # GPL-3.0 §6 requires the complete corresponding source to travel with a
+      # binary distribution. GitHub's automatic "Source code" archives already
+      # cover this, but we attach a ready-made zip as well so the download page
+      # is self-contained.
+      - name: Package corresponding source
+        run: |
+          set -euo pipefail
+          command -v zip > /dev/null || { sudo apt-get update -qq && sudo apt-get install -y zip; }
+          OUT="dist/FocusReturn-${{ steps.version.outputs.name }}-source.zip"
+          mkdir -p dist
+          find . -type f \
+            -not -path './.git/*' \
+            -not -path './.gradle/*' \
+            -not -path './.android/*' \
+            -not -path './.idea/*' \
+            -not -path './app/build/*' \
+            -not -path './build/*' \
+            -not -name 'local.properties' \
+            -not -name 'keystore.properties' \
+            -not -name '*.jks' \
+            -not -name '*.keystore' \
+            -not -name '*.p12' \
+            -not -name '*.apk' \
+            -not -name '*.aab' \
+            | sort | zip -q "$OUT" -@
+          unzip -l "$OUT" | tail -n 3
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FocusReturn-${{ steps.version.outputs.name }}-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Upload source package
+        uses: actions/upload-artifact@v4
+        with:
+          name: FocusReturn-${{ steps.version.outputs.name }}-source
+          path: dist/*-source.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    # Only publish when the build was signed. A tag pushed without the signing
+    # secrets therefore produces a green build with artefacts but never
+    # clobbers an existing, properly signed Release.
+    if: startsWith(github.ref, 'refs/tags/v') && needs.build.outputs.signed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artefacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      # Same reasoning as the build job: install build-tools directly instead of
+      # going through android-actions/setup-android, which is broken upstream.
+      - name: Set up Android SDK
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER=$(ls "$SDK_ROOT"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -n 1)
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          "$SDKMANAGER" --install "build-tools;35.0.0"
+          echo "Android SDK ready at $SDK_ROOT"
+
+      # Defence in depth: never attach an unsigned APK to a Release.
+      - name: Refuse to publish an unsigned APK
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)
+          APK=$(ls dist/*.apk | head -n 1)
+          if ! "$APKSIGNER" verify --print-certs "$APK"; then
+            echo "::error::Refusing to publish $APK - signature verification failed."
+            exit 1
+          fi
+          echo "Signature OK, publishing $APK"
+
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          ls -l dist
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist/*.apk dist/*-source.zip --clobber
+          else
+            gh release create "$TAG" \
+              --title "焦点回归 FocusReturn ${TAG#v}" \
+              --generate-notes \
+              dist/*.apk dist/*-source.zip
+          fi

@@ -1,0 +1,4 @@
+<resources>
+    <!-- True when the system bars carry dark icons (i.e. in the light theme). -->
+    <bool name="window_light_system_bars">true</bool>
+</resources>

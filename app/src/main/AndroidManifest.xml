@@ -1,0 +1,33 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="com.android.permission.GET_INSTALLED_APPS" />
+    <application android:theme="@style/AppTheme" android:label="焦点回归" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false">
+        <activity
+            android:name=".ComposeSettingsActivity"
+            android:exported="true"
+            android:label="焦点回归"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.INFO" />
+            </intent-filter>
+        </activity>
+        <!-- 旧的 View 版设置界面，仅在 Compose 版验证完成前保留为回退入口。 -->
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:label="焦点回归（旧版界面）" />
+        <provider
+            android:name=".SettingsProvider"
+            android:authorities="com.guchnn.focusreturn.settings"
+            android:directBootAware="true"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+        <meta-data android:name="xposedmodule" android:value="true" />
+        <meta-data android:name="xposedscope" android:resource="@array/xposed_scope" />
+        <meta-data android:name="xposeddescription" android:value="焦点回归 FocusReturn（独立衍生作品，基于上游 ImKani 的 HyperOS3FocusRestore）— 恢复焦点通知的状态栏显示" />
+        <meta-data android:name="xposedminversion" android:value="93" />
+        <meta-data android:name="xposedsharedprefs" android:value="true" />
+    </application>
+</manifest>

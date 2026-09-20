@@ -1,0 +1,23 @@
+<!-- Circular variant of the launcher background, only used by the legacy
+     (pre adaptive icon) round icon. Monochrome black to match the square one. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M54,0A54,54 0 1 1 54,108A54,54 0 1 1 54,0Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="0"
+                android:endX="108"
+                android:endY="108">
+                <item android:offset="0" android:color="#FF141414" />
+                <item android:offset="0.55" android:color="#FF0A0A0A" />
+                <item android:offset="1" android:color="#FF000000" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

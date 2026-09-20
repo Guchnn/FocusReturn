@@ -1,0 +1,30 @@
+# Gradle and Android Studio
+.gradle/
+.gradle-temp/
+.kotlin/
+.android/
+.idea/
+*.iml
+local.properties
+
+# Signing material - NEVER commit these, they carry the private key
+*.jks
+*.keystore
+*.p12
+*.bks
+keystore.properties
+signing.properties
+
+# Build outputs
+build/
+app/build/
+*.apk
+*.aab
+
+# Local AI/build notes and release drafts
+PROJECT_ENVIRONMENT.md
+release-notes-*.md
+
+# OS/editor files
+.DS_Store
+Thumbs.db

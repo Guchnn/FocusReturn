@@ -1,0 +1,49 @@
+<!--
+    Legacy (pre adaptive icon) round launcher icon. Only reachable if minSdk is
+    ever lowered below 26.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M54,0A54,54 0 1 1 54,108A54,54 0 1 1 54,0Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="0"
+                android:endX="108"
+                android:endY="108">
+                <item android:offset="0" android:color="#FF2F6BFF" />
+                <item android:offset="0.55" android:color="#FF5B63F5" />
+                <item android:offset="1" android:color="#FF8B5CF6" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:pathData="M54,0A54,54 0 1 1 54,108A54,54 0 1 1 54,0Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="54"
+                android:centerY="36"
+                android:gradientRadius="54">
+                <item android:offset="0" android:color="#38FFFFFF" />
+                <item android:offset="1" android:color="#00FFFFFF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M31.73,76.27A31.5,31.5 0 1 1 76.27,76.27"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="8.1"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent" />
+    <path
+        android:pathData="M71.93,80.62L82.85,79.24L73.30,69.70Z"
+        android:fillColor="#FFFFFFFF" />
+    <path
+        android:pathData="M43.05,46.2h21.9a7.8,7.8 0 0 1 0,15.6h-21.9a7.8,7.8 0 0 1 0,-15.6z"
+        android:fillColor="#FFFFFFFF" />
+</vector>

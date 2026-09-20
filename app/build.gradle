@@ -1,0 +1,144 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.plugin.compose'
+}
+
+// ---------------------------------------------------------------------------
+// Signing
+//
+// The private key is NEVER part of the repository (.gitignore covers *.jks,
+// *.keystore and keystore.properties), so a plain clone must still compile.
+// Three ways to supply the key, checked in this order:
+//
+//   1. ./keystore.properties   (gitignored; local development)
+//        storeFile=/abs/path/to/focusreturn-release.jks
+//        storePassword=...
+//        keyAlias=focusreturn
+//        keyPassword=...
+//
+//   2. Gradle properties, e.g. -PFOCUSRETURN_KEYSTORE=... on the command line,
+//      or the same keys in ~/.gradle/gradle.properties (used by CI):
+//        FOCUSRETURN_KEYSTORE / FOCUSRETURN_STORE_PASSWORD
+//        FOCUSRETURN_KEY_ALIAS / FOCUSRETURN_KEY_PASSWORD
+//
+//   3. Fallback: the project local debug keystore, so test builds stay
+//      installable over an existing installation.
+//
+// When none of them resolve to an existing file the APK is produced UNSIGNED
+// instead of failing the build - that is what keeps forks and pull requests
+// green in CI.
+// ---------------------------------------------------------------------------
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+def keystoreProperties = new Properties()
+def hasKeystoreProperties = keystorePropertiesFile.exists()
+if (hasKeystoreProperties) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
+def signStorePath = keystoreProperties.getProperty('storeFile')
+        ?: project.findProperty('FOCUSRETURN_KEYSTORE')
+def signStorePassword = keystoreProperties.getProperty('storePassword')
+        ?: project.findProperty('FOCUSRETURN_STORE_PASSWORD')
+def signKeyAlias = keystoreProperties.getProperty('keyAlias')
+        ?: project.findProperty('FOCUSRETURN_KEY_ALIAS')
+def signKeyPassword = keystoreProperties.getProperty('keyPassword')
+        ?: project.findProperty('FOCUSRETURN_KEY_PASSWORD')
+
+if (signStorePath == null && file('../.android/debug.keystore').exists()) {
+    signStorePath = '../.android/debug.keystore'
+    signStorePassword = signStorePassword ?: 'android'
+    signKeyAlias = signKeyAlias ?: 'androiddebugkey'
+    signKeyPassword = signKeyPassword ?: 'android'
+}
+
+def keystoreFile = signStorePath == null ? null : file(signStorePath)
+def hasSigningKey = keystoreFile != null && keystoreFile.exists()
+
+if (signStorePath != null && !hasSigningKey) {
+    logger.warn("FocusReturn: signing keystore '${keystoreFile}' not found - " +
+            "the APK will be built UNSIGNED.")
+}
+
+android {
+    namespace 'com.guchnn.focusreturn'
+    // Miuix 的 miuix-ui-android aar 声明了 minCompileSdk=37。
+    compileSdk 37
+
+    buildFeatures {
+        buildConfig true
+        compose true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        resources {
+            excludes += ['/META-INF/{AL2.0,LGPL2.1}', 'META-INF/DEPENDENCIES']
+        }
+    }
+
+    defaultConfig {
+        applicationId 'com.guchnn.focusreturn'
+        minSdk 27
+        targetSdk 35
+        // versionCode stays monotonic (1.7.2 shipped as 121) so existing
+        // installs can still update; the user-facing name restarts at 1.0.
+        versionCode 122
+        versionName '1.0'
+    }
+
+    if (hasSigningKey) {
+        signingConfigs {
+            local {
+                storeFile keystoreFile
+                storePassword signStorePassword
+                keyAlias signKeyAlias
+                keyPassword signKeyPassword
+                // AGP defaults are v1 (only below minSdk 24) + v2. v3 is NOT
+                // on by default and has to be asked for explicitly, so we do.
+                // v1 is skipped: minSdk is 27, every target device verifies v2,
+                // and AGP ignores enableV1Signing above minSdk 24 anyway.
+                enableV2Signing true
+                enableV3Signing true
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            if (hasSigningKey) signingConfig signingConfigs.local
+        }
+        release {
+            // Unsigned when no key is available: the source stays buildable
+            // everywhere, and release artefacts are signed by the maintainer.
+            if (hasSigningKey) signingConfig signingConfigs.local
+        }
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            outputFileName = "FocusReturn-${variant.versionName}-${variant.buildType.name}.apk"
+        }
+    }
+}
+
+kotlin {
+    jvmToolchain(17)
+}
+
+dependencies {
+    compileOnly 'de.robv.android.xposed:api:82'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+
+    // Miuix (HyperOS 风格组件库, Apache-2.0) + Compose 运行时。
+    implementation 'top.yukonga.miuix.kmp:miuix-ui-android:0.9.3'
+    implementation 'top.yukonga.miuix.kmp:miuix-preference-android:0.9.3'
+    implementation 'top.yukonga.miuix.kmp:miuix-icons-android:0.9.3'
+    implementation 'androidx.activity:activity-compose:1.12.0'
+}
+

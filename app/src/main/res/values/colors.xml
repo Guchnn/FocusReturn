@@ -1,0 +1,6 @@
+<resources>
+    <!-- Kept for the upstream module icon drawable (ic_focusreturn). -->
+    <color name="ic_launcher_foreground_color">#263238</color>
+    <!-- Launch window background; has a values-night override. -->
+    <color name="window_background">#FFF2F3F7</color>
+</resources>

@@ -1,0 +1,18 @@
+<resources>
+    <!--
+        Edge to edge base theme: both system bars are transparent and the top /
+        bottom card surfaces of the settings screen paint underneath them, so
+        there is no seam between the status bar and the app content. The bar
+        icon colour is re-applied at runtime in SettingsActivity once the real
+        palette is known.
+    -->
+    <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:colorBackground">@color/window_background</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">@bool/window_light_system_bars</item>
+        <item name="android:windowLightNavigationBar">@bool/window_light_system_bars</item>
+    </style>
+</resources>

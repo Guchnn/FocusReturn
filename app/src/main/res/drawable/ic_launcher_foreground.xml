@@ -1,0 +1,26 @@
+<!--
+    Launcher icon foreground mark: a circular "restore" arrow wrapping the focus
+    notification capsule. Drawn inside the 72dp adaptive icon safe zone
+    (viewport 108) so no launcher mask can crop it.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- restore ring: 270 degree sweep with the gap at the bottom -->
+    <path
+        android:pathData="M39.15,68.85A21,21 0 1 1 68.85,68.85"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="5.4"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent" />
+    <!-- arrow head sitting on the lower right end of the sweep -->
+    <path
+        android:pathData="M65.95,71.75L73.23,70.83L66.87,64.47Z"
+        android:fillColor="#FFFFFFFF" />
+    <!-- focus notification capsule -->
+    <path
+        android:pathData="M46.7,48.8h14.6a5.2,5.2 0 0 1 0,10.4h-14.6a5.2,5.2 0 0 1 0,-10.4z"
+        android:fillColor="#FFFFFFFF" />
+</vector>
