@@ -73,27 +73,45 @@ jobs:
 
           # The module compiles against API 37 (the Miuix aar declares
           # minCompileSdk=37), so android-35 is not enough.
-          "$SDKMANAGER" --install "platform-tools" "build-tools;37.0.0"
-          for spec in "platforms;android-37" "platforms;android-37.0"; do
-            "$SDKMANAGER" --install "$spec" && break || true
-          done
+          #
+          # There is no `platforms;android-37` package in the SDK repository:
+          # Android 17 ships as android-37.0 / 37.1 / 37.2. Asking for the plain
+          # name only produces "Warning: Failed to find package", and the one
+          # that does install unpacks into platforms/android-37.0 - which AGP
+          # cannot find when the project asks for `compileSdk 37`.
+          "$SDKMANAGER" --install "platform-tools" "build-tools;37.0.0" "platforms;android-37.0"
 
-          # The published android-37 package reports AndroidVersion.ApiLevel=37.0,
-          # so sdkmanager unpacks it as platforms/android-37.0 and AGP then aborts
-          # with "Failed to find Platform SDK with path: platforms;android-37".
-          # Rewriting two fields is enough to make it usable; verified byte for
-          # byte against a working local install.
+          # Build platforms/android-37 from it, UNCONDITIONALLY: the runner image
+          # already ships an android-37 directory of its own, and letting it win
+          # leaves the platform unusable.
+          #
+          # Its source.properties says `AndroidVersion.ApiLevel=37.0`, which does
+          # not parse as an integer. AGP then treats the project as having no
+          # usable compileSdk and fails checkReleaseAarMetadata for EVERY
+          # dependency - all 54 of them, down to ones needing only API 31 - with
+          # ":app is currently compiled against android-37" in the same message.
+          # Rewriting that one field (plus the package path) is what makes the
+          # identical setup work locally.
           PLAT="$SDK_ROOT/platforms"
-          if [ -d "$PLAT/android-37.0" ] && [ ! -d "$PLAT/android-37" ]; then
-            cp -a "$PLAT/android-37.0" "$PLAT/android-37"
+          SRC="$PLAT/android-37.0"
+          DST="$PLAT/android-37"
+          if [ -d "$SRC" ]; then
+            rm -rf "$DST"
+            cp -a "$SRC" "$DST"
           fi
-          if [ -f "$PLAT/android-37/source.properties" ]; then
-            sed -i 's/^AndroidVersion\.ApiLevel=37\.0$/AndroidVersion.ApiLevel=37/' \
-              "$PLAT/android-37/source.properties"
-            sed -i 's/localPackage path="platforms;android-37\.0"/localPackage path="platforms;android-37"/' \
-              "$PLAT/android-37/package.xml"
+          if [ -f "$DST/source.properties" ]; then
+            sed -i -E 's/^AndroidVersion\.ApiLevel=.*$/AndroidVersion.ApiLevel=37/' \
+              "$DST/source.properties"
+            sed -i -E 's#localPackage path="platforms;android-37\.0"#localPackage path="platforms;android-37"#' \
+              "$DST/package.xml"
           fi
+
+          echo "--- platforms ---"
           ls "$PLAT"
+          echo "--- android-37/source.properties ---"
+          cat "$DST/source.properties"
+          echo "--- android-37 package path ---"
+          grep -o 'localPackage path="[^"]*"' "$DST/package.xml" || true
           echo "Android SDK ready at $SDK_ROOT"
 
       - name: Set up Gradle
