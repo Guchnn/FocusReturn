@@ -70,7 +70,30 @@ jobs:
           echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
           echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
           yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
-          "$SDKMANAGER" --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+          # The module compiles against API 37 (the Miuix aar declares
+          # minCompileSdk=37), so android-35 is not enough.
+          "$SDKMANAGER" --install "platform-tools" "build-tools;37.0.0"
+          for spec in "platforms;android-37" "platforms;android-37.0"; do
+            "$SDKMANAGER" --install "$spec" && break || true
+          done
+
+          # The published android-37 package reports AndroidVersion.ApiLevel=37.0,
+          # so sdkmanager unpacks it as platforms/android-37.0 and AGP then aborts
+          # with "Failed to find Platform SDK with path: platforms;android-37".
+          # Rewriting two fields is enough to make it usable; verified byte for
+          # byte against a working local install.
+          PLAT="$SDK_ROOT/platforms"
+          if [ -d "$PLAT/android-37.0" ] && [ ! -d "$PLAT/android-37" ]; then
+            cp -a "$PLAT/android-37.0" "$PLAT/android-37"
+          fi
+          if [ -f "$PLAT/android-37/source.properties" ]; then
+            sed -i 's/^AndroidVersion\.ApiLevel=37\.0$/AndroidVersion.ApiLevel=37/' \
+              "$PLAT/android-37/source.properties"
+            sed -i 's/localPackage path="platforms;android-37\.0"/localPackage path="platforms;android-37"/' \
+              "$PLAT/android-37/package.xml"
+          fi
+          ls "$PLAT"
           echo "Android SDK ready at $SDK_ROOT"
 
       - name: Set up Gradle
@@ -206,7 +229,7 @@ jobs:
           SDKMANAGER=$(ls "$SDK_ROOT"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -n 1)
           echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
-          "$SDKMANAGER" --install "build-tools;35.0.0"
+          "$SDKMANAGER" --install "build-tools;37.0.0"
           echo "Android SDK ready at $SDK_ROOT"
 
       # Defence in depth: never attach an unsigned APK to a Release.
